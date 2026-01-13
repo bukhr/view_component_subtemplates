@@ -1,7 +1,7 @@
 # ViewComponent Subtemplates
 
 [![Gem Version](https://badge.fury.io/rb/view_component_subtemplates.svg)](https://badge.fury.io/rb/view_component_subtemplates)
-[![Build Status](https://github.com/buk/view_component_subtemplates/workflows/CI/badge.svg)](https://github.com/buk/view_component_subtemplates/actions)
+[![Build Status](https://github.com/bukhr/view_component_subtemplates/workflows/CI/badge.svg)](https://github.com/bukhr/view_component_subtemplates/actions)
 
 Adds support for **sub-templates with typed arguments** to [ViewComponent](https://viewcomponent.org/), enabling modular, reusable component architectures.
 
@@ -93,6 +93,7 @@ app/components/
 
 ```erb
 <!-- app/components/table_component/footer.html.erb -->
+<%# locals: (total_count:) -%>
 <tfoot>
   <tr>
     <td colspan="2">Total: <%= total_count %> users</td>
@@ -110,7 +111,7 @@ app/components/
 
 - Ruby >= 3.1.0
 - Rails >= 7.0.0
-- ViewComponent >= 3.0.0
+- ViewComponent >= 4.2.0
 
 ## Development
 
