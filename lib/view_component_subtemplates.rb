@@ -3,18 +3,9 @@
 
 require "view_component"
 
-# Forzar carga de ViewComponent internals
-begin
-  require "view_component/template"
-rescue LoadError
-  # En versiones más antiguas, Template podría estar en otro lugar
-  begin
-    require "view_component/base"
-    require "view_component/compiler"
-  rescue LoadError
-    # Fallback - cargar ViewComponent completo
-  end
-end
+# Ensure ViewComponent internals are loaded
+require "view_component/base"
+require "view_component/compiler"
 
 require_relative "view_component_subtemplates/version"
 require_relative "view_component_subtemplates/compiler_extension"
@@ -33,15 +24,20 @@ module ViewComponentSubtemplates
     component_name = component_class.name.demodulize.underscore
     File.join(component_dir, component_name)
   end
-end
 
-# Cargar SubTemplate DESPUÉS de que todo esté configurado
-require_relative "view_component_subtemplates/sub_template"
-
-# Extend ViewComponent::Base to add after_compile hook for sub-templates
-ViewComponent::Base.class_eval do
-  def after_compile
-    super if defined?(super)
-    ViewComponentSubtemplates::CompilerExtension.process_component(self.class)
+  # Module to extend ViewComponent::Base class methods
+  # This hooks into the after_compile class method from ViewComponent PR #2411
+  module AfterCompileHook
+    def after_compile
+      super
+      ViewComponentSubtemplates::CompilerExtension.process_component(self)
+    end
   end
 end
+
+# Load SubTemplate after the module is fully configured
+require_relative "view_component_subtemplates/sub_template"
+
+# Extend ViewComponent::Base class methods to hook into after_compile
+# This uses prepend on the singleton class to extend the class method
+ViewComponent::Base.singleton_class.prepend(ViewComponentSubtemplates::AfterCompileHook)

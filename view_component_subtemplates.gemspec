@@ -33,7 +33,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # Dependencies
-  spec.add_dependency "view_component", ">= 3.0.0"
+  spec.add_dependency "view_component", ">= 4.2.0"
   spec.add_dependency "rails", ">= 7.0.0"
   spec.add_dependency "activesupport", ">= 7.0.0"
 

@@ -1,7 +1,8 @@
 # compiler_extension.rb
 module ViewComponentSubtemplates
   module CompilerExtension
-    # Método estático para procesar componentes usando el hook after_compile
+    # Processes a component class to compile its sub-templates.
+    # Called from the after_compile hook.
     def self.process_component(component_class)
       gather_sub_templates_for(component_class).each do |sub_template|
         sub_template.compile_to_component

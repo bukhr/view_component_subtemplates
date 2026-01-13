@@ -2,8 +2,7 @@
 
 source "https://rubygems.org"
 
-# Usar ViewComponent local por el momento con mis cambios.
-gem "view_component", path: "/Users/jsolas/view_component"
+gem "view_component", ">= 4.2.0"
 
 # Specify your gem's dependencies in view_component_subtemplates.gemspec
 gemspec
