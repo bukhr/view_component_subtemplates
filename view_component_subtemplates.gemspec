@@ -11,6 +11,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Sub-templates functionality for ViewComponent"
   spec.description = "Adds support for sub-templates with arguments to ViewComponent, allowing components to have multiple templates in their sidecar directory."
   spec.homepage = "https://github.com/bukhr/view_component_subtemplates"
+  spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
 
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
@@ -33,9 +34,8 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # Dependencies
-  spec.add_dependency "view_component", ">= 4.2.0"
-  spec.add_dependency "rails", ">= 7.0.0"
-  spec.add_dependency "activesupport", ">= 7.0.0"
+  spec.add_dependency "view_component", "~> 4.2"
+  spec.add_dependency "rails", "~> 7.0"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html
