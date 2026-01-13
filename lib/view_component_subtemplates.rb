@@ -1,11 +1,7 @@
 # view_component_subtemplates.rb
 # frozen_string_literal: true
 
-require "view_component"
-
-# Ensure ViewComponent internals are loaded
-require "view_component/base"
-require "view_component/compiler"
+require "active_support"
 
 require_relative "view_component_subtemplates/version"
 require_relative "view_component_subtemplates/compiler_extension"
@@ -38,6 +34,7 @@ end
 # Load SubTemplate after the module is fully configured
 require_relative "view_component_subtemplates/sub_template"
 
-# Extend ViewComponent::Base class methods to hook into after_compile
-# This uses prepend on the singleton class to extend the class method
-ViewComponent::Base.singleton_class.prepend(ViewComponentSubtemplates::AfterCompileHook)
+# Hook into ViewComponent when it loads (lazy loading for faster boot in development)
+ActiveSupport.on_load(:view_component) do
+  ViewComponent::Base.singleton_class.prepend(ViewComponentSubtemplates::AfterCompileHook)
+end
