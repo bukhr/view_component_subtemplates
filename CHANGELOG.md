@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [0.1.1] - 2026-01-13
+
+### Changed
+- Use official `after_compile` hook from ViewComponent 4.2.0 via `ActiveSupport.on_load(:view_component)`
+- Expanded test matrix to Ruby 3.2, 3.3, and 3.4
+
+### Fixed
+- Rubocop offenses
+
 ## [0.1.0] - 2025-07-18
 
 ### Agregado
