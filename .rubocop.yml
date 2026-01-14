@@ -1,8 +1,36 @@
 AllCops:
   TargetRubyVersion: 3.1
+  SuggestExtensions: false
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
+
+# Disable documentation requirements for this gem
+Style/Documentation:
+  Enabled: false
+
+# Allow longer methods in specific files
+Metrics/MethodLength:
+  Max: 15
+
+# Allow longer lines in gemspec
+Layout/LineLength:
+  Exclude:
+    - "*.gemspec"
+
+# Disable metrics for tests
+Metrics/ClassLength:
+  Exclude:
+    - "test/**/*"
+
+Metrics/BlockLength:
+  Exclude:
+    - "test/**/*"
+
+# Tests may define classes without calling super
+Lint/MissingSuper:
+  Exclude:
+    - "test/**/*"

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # sub_template.rb
 module ViewComponentSubtemplates
   # Represents a single sub-template file associated with a ViewComponent.
@@ -42,9 +44,9 @@ module ViewComponentSubtemplates
     private
 
     def validate_file_exists!
-      unless File.exist?(path)
-        raise ViewComponentSubtemplates::Error, "Template file not found: #{path}"
-      end
+      return if File.exist?(path)
+
+      raise ViewComponentSubtemplates::Error, "Template file not found: #{path}"
     end
 
     def extract_explicit_locals_from_source
@@ -70,9 +72,9 @@ module ViewComponentSubtemplates
     end
 
     def define_private_render_method(name, compiled_source, args)
-      @component.class_eval <<~RUBY, path, 1
+      @component.class_eval <<~RUBY, __FILE__, __LINE__ + 1
         private
-        def #{name}(#{args.join(', ')})
+        def #{name}(#{args.join(", ")})
           (#{compiled_source}).html_safe
         end
       RUBY
@@ -85,13 +87,13 @@ module ViewComponentSubtemplates
         signature = args.map { |arg| "#{arg}:" }.join(", ")
         forwarded_args = args.join(", ")
 
-        @component.class_eval <<~RUBY, path, 1
+        @component.class_eval <<~RUBY, __FILE__, __LINE__ + 1
           def #{call_name}(#{signature})
             #{render_name}(#{forwarded_args})
           end
         RUBY
       else
-        @component.class_eval <<~RUBY, path, 1
+        @component.class_eval <<~RUBY, __FILE__, __LINE__ + 1
           def #{call_name}
             #{render_name}
           end
@@ -100,7 +102,3 @@ module ViewComponentSubtemplates
     end
   end
 end
-
-
-
-
