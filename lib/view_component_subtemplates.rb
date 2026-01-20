@@ -26,7 +26,11 @@ module ViewComponentSubtemplates
   module AfterCompileHook
     def after_compile
       super
-      ViewComponentSubtemplates::CompilerExtension.process_component(self)
+
+      # Process subtemplates for all ancestors (top to bottom) and self
+      ancestors.select { |a| a.is_a?(Class) && a < ViewComponent::Base }
+               .reverse
+               .each { |ancestor| ViewComponentSubtemplates::CompilerExtension.process_component(ancestor) }
     end
   end
 end
