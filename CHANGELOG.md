@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-21
+
+### Added
+- Automatic subtemplate processing for ancestor components
+- Support for multi-level inheritance (grandparent → parent → child)
+
+### Fixed
+- Inheritance issue where child components miss parent's `call_*` methods
+
 ## [0.1.1] - 2026-01-13
 
 ### Changed

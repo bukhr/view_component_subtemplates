@@ -279,6 +279,284 @@ class TestViewComponentSubtemplates < Minitest::Test
     end
   end
 
+  context "component inheritance with subtemplates" do
+    setup do
+      @temp_dir = Dir.mktmpdir
+
+      # Create parent component
+      @parent_component = Class.new(ViewComponent::Base)
+      Object.const_set(:ParentComponent, @parent_component)
+      @parent_dir = File.join(@temp_dir, "parent_component")
+      Dir.mkdir(@parent_dir)
+
+      temp_dir = @temp_dir
+      @parent_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "parent_component.rb")
+      end
+
+      # Create parent main template
+      File.write(File.join(@temp_dir, "parent_component.html.erb"), "<div>Parent</div>")
+
+      # Create parent subtemplates
+      File.write(File.join(@parent_dir, "header.html.erb"),
+                 "<%# locals: (title:) -%>\n<h1><%= title %></h1>")
+      File.write(File.join(@parent_dir, "footer.html.erb"),
+                 "<footer>Parent Footer</footer>")
+    end
+
+    teardown do
+      Object.send(:remove_const, :ParentComponent) if Object.const_defined?(:ParentComponent)
+      Object.send(:remove_const, :ChildComponent) if Object.const_defined?(:ChildComponent)
+      FileUtils.rm_rf(@temp_dir) if @temp_dir
+    end
+
+    should "inherit call methods from parent component" do
+      # Compile parent first
+      ViewComponent::Compiler.new(@parent_component).compile
+
+      # Create child component that inherits from parent
+      child_component = Class.new(@parent_component)
+      Object.const_set(:ChildComponent, child_component)
+      temp_dir = @temp_dir
+      child_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "child_component.rb")
+      end
+
+      # Create child main template
+      File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
+
+      # Compile child
+      ViewComponent::Compiler.new(child_component).compile
+
+      # Child should inherit parent's call methods
+      child_instance = child_component.new
+      assert child_instance.respond_to?(:call_header)
+      assert child_instance.respond_to?(:call_footer)
+
+      result = child_instance.call_header(title: "Inherited Title")
+      assert_equal "\n<h1>Inherited Title</h1>", result
+    end
+
+    should "automatically compile parent when child is compiled first" do
+      # Create child component BEFORE parent is compiled
+      child_component = Class.new(@parent_component)
+      Object.const_set(:ChildComponent, child_component)
+      temp_dir = @temp_dir
+      child_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "child_component.rb")
+      end
+
+      # Create child main template
+      File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
+
+      # Compile child FIRST (parent not compiled yet)
+      ViewComponent::Compiler.new(child_component).compile
+
+      # Child should still have access to parent's call methods
+      child_instance = child_component.new
+      assert child_instance.respond_to?(:call_header), "Child should inherit call_header from parent"
+      assert child_instance.respond_to?(:call_footer), "Child should inherit call_footer from parent"
+
+      result = child_instance.call_header(title: "Auto-compiled Parent")
+      assert_equal "\n<h1>Auto-compiled Parent</h1>", result
+    end
+
+    should "work with child that has its own subtemplates" do
+      # Create child with its own subtemplates
+      child_component = Class.new(@parent_component)
+      Object.const_set(:ChildComponent, child_component)
+      child_dir = File.join(@temp_dir, "child_component")
+      Dir.mkdir(child_dir)
+
+      temp_dir = @temp_dir
+      child_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "child_component.rb")
+      end
+
+      # Create child main template
+      File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
+
+      # Create child subtemplates
+      File.write(File.join(child_dir, "body.html.erb"),
+                 "<%# locals: (content:) -%>\n<main><%= content %></main>")
+
+      # Compile child
+      ViewComponent::Compiler.new(child_component).compile
+
+      child_instance = child_component.new
+
+      # Should have both parent and child call methods
+      assert child_instance.respond_to?(:call_header), "Should have parent's call_header"
+      assert child_instance.respond_to?(:call_footer), "Should have parent's call_footer"
+      assert child_instance.respond_to?(:call_body), "Should have child's call_body"
+
+      parent_result = child_instance.call_header(title: "Test")
+      assert_equal "\n<h1>Test</h1>", parent_result
+
+      child_result = child_instance.call_body(content: "Child content")
+      assert_equal "\n<main>Child content</main>", child_result
+    end
+
+    should "skip ancestor compilation for direct ViewComponent::Base children" do
+      # Component inherits directly from ViewComponent::Base (no custom parent)
+      direct_child = Class.new(ViewComponent::Base)
+      Object.const_set(:DirectChild, direct_child)
+      direct_child_dir = File.join(@temp_dir, "direct_child")
+      Dir.mkdir(direct_child_dir)
+
+      temp_dir = @temp_dir
+      direct_child.define_singleton_method(:identifier) do
+        File.join(temp_dir, "direct_child.rb")
+      end
+
+      File.write(File.join(@temp_dir, "direct_child.html.erb"), "<div>Direct</div>")
+      File.write(File.join(direct_child_dir, "nav.html.erb"),
+                 "<%# locals: (items:) -%>\n<nav><%= items.join(', ') %></nav>")
+
+      # Should compile and process its own subtemplates
+      ViewComponent::Compiler.new(direct_child).compile
+
+      direct_child_instance = direct_child.new
+      assert direct_child_instance.respond_to?(:call_nav), "Should have its own call_nav method"
+
+      result = direct_child_instance.call_nav(items: %w[Home About])
+      assert_equal "\n<nav>Home, About</nav>", result
+    ensure
+      Object.send(:remove_const, :DirectChild) if Object.const_defined?(:DirectChild)
+    end
+
+    should "not reprocess subtemplates if already processed" do
+      # Compile parent first
+      ViewComponent::Compiler.new(@parent_component).compile
+
+      # Verify parent was marked as processed
+      assert @parent_component.instance_variable_get(:@__subtemplates_processed),
+             "Parent should be marked as processed"
+
+      # Create and compile child
+      child_component = Class.new(@parent_component)
+      Object.const_set(:ChildComponent, child_component)
+      temp_dir = @temp_dir
+      child_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "child_component.rb")
+      end
+      File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
+
+      # Compile child - parent subtemplates should NOT be reprocessed
+      ViewComponent::Compiler.new(child_component).compile
+
+      # Both should work correctly
+      child_instance = child_component.new
+      assert child_instance.respond_to?(:call_header)
+      assert child_instance.respond_to?(:call_footer)
+
+      result = child_instance.call_header(title: "No Reprocess")
+      assert_equal "\n<h1>No Reprocess</h1>", result
+    end
+
+    should "handle multi-level inheritance (3+ levels)" do
+      # Create grandparent component with subtemplates
+      grandparent_component = Class.new(ViewComponent::Base)
+      Object.const_set(:GrandparentComponent, grandparent_component)
+      grandparent_dir = File.join(@temp_dir, "grandparent_component")
+      Dir.mkdir(grandparent_dir)
+
+      temp_dir = @temp_dir
+      grandparent_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "grandparent_component.rb")
+      end
+
+      # Create grandparent main template and subtemplates
+      File.write(File.join(@temp_dir, "grandparent_component.html.erb"), "<div>Grandparent</div>")
+      File.write(File.join(grandparent_dir, "title.html.erb"),
+                 "<%# locals: (text:) -%>\n<h1><%= text %></h1>")
+
+      # Create parent component (inherits from grandparent, no subtemplates)
+      parent_component = Class.new(grandparent_component)
+      Object.const_set(:MiddleParentComponent, parent_component)
+      parent_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "middle_parent_component.rb")
+      end
+      File.write(File.join(@temp_dir, "middle_parent_component.html.erb"), "<div>Parent</div>")
+
+      # Create child component (inherits from parent)
+      child_component = Class.new(parent_component)
+      Object.const_set(:GrandchildComponent, child_component)
+      child_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "grandchild_component.rb")
+      end
+      File.write(File.join(@temp_dir, "grandchild_component.html.erb"), "<div>Grandchild</div>")
+
+      # Compile ONLY the grandchild (not grandparent or parent)
+      ViewComponent::Compiler.new(child_component).compile
+
+      # Grandchild should inherit call_title from grandparent
+      child_instance = child_component.new
+      assert child_instance.respond_to?(:call_title), "Grandchild should inherit call_title from grandparent"
+
+      result = child_instance.call_title(text: "Multi-level Title")
+      assert_equal "\n<h1>Multi-level Title</h1>", result
+    ensure
+      Object.send(:remove_const, :GrandparentComponent) if Object.const_defined?(:GrandparentComponent)
+      Object.send(:remove_const, :MiddleParentComponent) if Object.const_defined?(:MiddleParentComponent)
+      Object.send(:remove_const, :GrandchildComponent) if Object.const_defined?(:GrandchildComponent)
+    end
+
+    should "compile all ancestors with subtemplates even if middle parent already compiled" do
+      # This test exposes the bug where middle parent is already compiled
+      # but grandparent is not, so we need to walk the entire chain
+
+      # Create grandparent component with subtemplates
+      grandparent_component = Class.new(ViewComponent::Base)
+      Object.const_set(:GrandParent2, grandparent_component)
+      grandparent_dir = File.join(@temp_dir, "grand_parent2")
+      Dir.mkdir(grandparent_dir)
+
+      temp_dir = @temp_dir
+      grandparent_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "grand_parent2.rb")
+      end
+
+      File.write(File.join(@temp_dir, "grand_parent2.html.erb"), "<div>GP2</div>")
+      File.write(File.join(grandparent_dir, "banner.html.erb"),
+                 "<%# locals: (msg:) -%>\n<div class='banner'><%= msg %></div>")
+
+      # Create middle parent (no subtemplates)
+      middle_component = Class.new(grandparent_component)
+      Object.const_set(:MiddleParent2, middle_component)
+      middle_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "middle_parent2.rb")
+      end
+      File.write(File.join(@temp_dir, "middle_parent2.html.erb"), "<div>Middle2</div>")
+
+      # Compile middle parent FIRST (grandparent NOT compiled yet)
+      ViewComponent::Compiler.new(middle_component).compile
+
+      # Now create and compile grandchild
+      child_component = Class.new(middle_component)
+      Object.const_set(:GrandChild2, child_component)
+      child_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "grand_child2.rb")
+      end
+      File.write(File.join(@temp_dir, "grand_child2.html.erb"), "<div>GC2</div>")
+
+      # Compile grandchild - should detect grandparent has subtemplates and compile it
+      ViewComponent::Compiler.new(child_component).compile
+
+      # Grandchild should have call_banner from grandparent
+      child_instance = child_component.new
+      assert child_instance.respond_to?(:call_banner),
+             "Grandchild should inherit call_banner even when middle parent was pre-compiled"
+
+      result = child_instance.call_banner(msg: "Success!")
+      assert_equal "\n<div class='banner'>Success!</div>", result
+    ensure
+      Object.send(:remove_const, :GrandParent2) if Object.const_defined?(:GrandParent2)
+      Object.send(:remove_const, :MiddleParent2) if Object.const_defined?(:MiddleParent2)
+      Object.send(:remove_const, :GrandChild2) if Object.const_defined?(:GrandChild2)
+    end
+  end
+
   context "error handling" do
     setup do
       @component_class = Class.new(ViewComponent::Base)
