@@ -337,6 +337,25 @@ class TestViewComponentSubtemplates < Minitest::Test
       assert_equal "\n<h1>Inherited Title</h1>", result
     end
 
+    should "render an inherited subtemplate standalone via render_subtemplate_in" do
+      ViewComponent::Compiler.new(@parent_component).compile
+
+      child_component = Class.new(@parent_component)
+      Object.const_set(:ChildComponent, child_component)
+      temp_dir = @temp_dir
+      child_component.define_singleton_method(:identifier) do
+        File.join(temp_dir, "child_component.rb")
+      end
+      File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
+      ViewComponent::Compiler.new(child_component).compile
+
+      view_context = ActionView::Base.new(ActionView::LookupContext.new([]), {}, nil)
+      # `footer` is a no-locals subtemplate defined on the parent.
+      result = child_component.new.render_subtemplate_in(view_context, :footer)
+
+      assert_equal "<footer>Parent Footer</footer>", result
+    end
+
     should "automatically compile parent when child is compiled first" do
       # Create child component BEFORE parent is compiled
       child_component = Class.new(@parent_component)
@@ -554,6 +573,117 @@ class TestViewComponentSubtemplates < Minitest::Test
       Object.send(:remove_const, :GrandParent2) if Object.const_defined?(:GrandParent2)
       Object.send(:remove_const, :MiddleParent2) if Object.const_defined?(:MiddleParent2)
       Object.send(:remove_const, :GrandChild2) if Object.const_defined?(:GrandChild2)
+    end
+  end
+
+  context "standalone subtemplate rendering" do
+    setup do
+      @component_class = Class.new(ViewComponent::Base) do
+        # Per-render data lives in instance state (set via the constructor in real
+        # usage; here via a writer to keep a single `initialize` in this test file).
+        attr_writer :field
+
+        def full_name
+          "request[#{@field}]"
+        end
+      end
+      Object.const_set(:StandaloneComponent, @component_class)
+      @temp_dir = Dir.mktmpdir
+      @component_dir = File.join(@temp_dir, "standalone_component")
+      Dir.mkdir(@component_dir)
+      temp_dir = @temp_dir
+      @component_class.define_singleton_method(:identifier) do
+        File.join(temp_dir, "standalone_component.rb")
+      end
+
+      File.write(File.join(@temp_dir, "standalone_component.html.erb"), "<div>Main</div>")
+
+      # No-locals subtemplate: reads the view context (`helpers`) and the
+      # component's own state/methods (`@field` via `full_name`).
+      File.write(
+        File.join(@component_dir, "field.html.erb"),
+        "<select id=\"<%= full_name %>\" data-ctx=\"<%= helpers.class.name %>\"></select>"
+      )
+
+      # No-locals subtemplate that reads an ivar off the view context via `helpers`.
+      File.write(
+        File.join(@component_dir, "greeting.html.erb"),
+        "<span><%= helpers.instance_variable_get(:@greeting) %></span>"
+      )
+
+      # Subtemplate that DOES declare locals: standalone rendering must reject it.
+      File.write(
+        File.join(@component_dir, "with_locals.html.erb"),
+        "<%# locals: (x:) -%>\n<span><%= x %></span>"
+      )
+
+      ViewComponent::Compiler.new(@component_class).compile(force: true)
+
+      @view_context = ActionView::Base.new(ActionView::LookupContext.new([]), {}, nil)
+      @component = @component_class.new
+      @component.field = "product_id"
+    end
+
+    teardown do
+      Object.send(:remove_const, :StandaloneComponent) if Object.const_defined?(:StandaloneComponent)
+      FileUtils.rm_rf(@temp_dir) if @temp_dir
+    end
+
+    should "raise when a view-context-dependent subtemplate is called without setup" do
+      assert_raises(ViewComponent::HelpersCalledBeforeRenderError) do
+        @component.call_field
+      end
+    end
+
+    should "render the subtemplate standalone with helpers and instance state available" do
+      result = @component.render_subtemplate_in(@view_context, :field)
+
+      # Component instance state resolved (data from the constructor).
+      assert_includes result, 'id="request[product_id]"'
+      # `helpers` resolves to the view context we passed (the guard does not fire).
+      assert_includes result, 'data-ctx="ActionView::Base"'
+      assert result.html_safe?
+    end
+
+    should "not render the main template" do
+      result = @component.render_subtemplate_in(@view_context, :field)
+
+      refute_includes result, "Main"
+    end
+
+    should "accept the subtemplate name as a string" do
+      result = @component.render_subtemplate_in(@view_context, "field")
+
+      assert_includes result, 'id="request[product_id]"'
+    end
+
+    should "reuse the given view context instead of building a new one" do
+      @view_context.instance_variable_set(:@greeting, "hola")
+
+      result = @component.render_subtemplate_in(@view_context, :greeting)
+
+      assert_includes result, "hola"
+    end
+
+    should "reject a subtemplate that declares locals" do
+      error = assert_raises(ViewComponentSubtemplates::Error) do
+        @component.render_subtemplate_in(@view_context, :with_locals)
+      end
+
+      assert_match(/locals/, error.message)
+      assert_match(/constructor/, error.message)
+    end
+
+    should "raise a consistent error when the subtemplate is not defined" do
+      error = assert_raises(ViewComponentSubtemplates::Error) do
+        @component.render_subtemplate_in(@view_context, :does_not_exist)
+      end
+
+      assert_match(/does_not_exist/, error.message)
+      assert_match(/not defined/, error.message)
+      # The error lists the existing subtemplates (covers `available_subtemplates`).
+      assert_match(/field/, error.message)
+      assert_match(/greeting/, error.message)
     end
   end
 
