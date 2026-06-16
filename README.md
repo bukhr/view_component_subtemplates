@@ -107,6 +107,47 @@ app/components/
 <%= render TableComponent.new(users: @users, title: "User List") %>
 ```
 
+## Rendering a subtemplate on its own
+
+Sometimes you need to render just one subtemplate, outside the component's main
+template. A common case is a controller action that responds to an AJAX request
+with only an updated fragment.
+
+Call `render_subtemplate_in` on a component instance, passing the current view
+context. The subtemplate **must not declare locals**: any per-render data is
+passed through the component's constructor, so the call site stays free of an
+untyped `**locals` boundary.
+
+```ruby
+class UsersController < ApplicationController
+  def row
+    component = RowComponent.new(user: User.find(params[:id]), highlight: false)
+
+    render html: component.render_subtemplate_in(view_context, :row), layout: false
+  end
+end
+```
+
+```erb
+<%# app/components/row_component/row.html.erb -- no `locals:` line %>
+<tr class="<%= 'highlighted' if @highlight %>"><td><%= @user.name %></td></tr>
+```
+
+`render_subtemplate_in(view_context, name)` renders the named subtemplate and
+returns its HTML as an html_safe string, without rendering the component's main
+template. It is the subtemplate-level counterpart of ViewComponent's `render_in`:
+`render_in(view_context)` is the external entry point for the main template
+(internally `call`), and `render_subtemplate_in` is the external entry point for
+a single subtemplate (internally `call_<name>`).
+
+`render_subtemplate_in` raises a clear error if the named subtemplate does not
+exist, or if it declares locals (pass that data through the component's
+constructor instead).
+
+**The no-locals rule applies only to standalone rendering.** Inside a component's
+templates, `call_<name>` keeps taking locals exactly as shown in the Quick Start;
+`render_subtemplate_in` is the only path that requires a no-locals subtemplate.
+
 ## Requirements
 
 - Ruby >= 3.1.0

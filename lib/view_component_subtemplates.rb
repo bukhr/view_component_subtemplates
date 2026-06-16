@@ -37,8 +37,10 @@ end
 
 # Load SubTemplate after the module is fully configured
 require_relative "view_component_subtemplates/sub_template"
+require_relative "view_component_subtemplates/standalone_renderer"
 
 # Hook into ViewComponent when it loads (lazy loading for faster boot in development)
 ActiveSupport.on_load(:view_component) do
   ViewComponent::Base.singleton_class.prepend(ViewComponentSubtemplates::AfterCompileHook)
+  ViewComponent::Base.include(ViewComponentSubtemplates::StandaloneRenderer)
 end
