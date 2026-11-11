@@ -107,6 +107,15 @@ app/components/
 <%= render TableComponent.new(users: @users, title: "User List") %>
 ```
 
+## HTML escaping
+
+Subtemplates escape interpolated values (`<%= value %>`) using Rails' HTML escaping.
+For example, a plain string containing `<strong>Hello</strong>` renders as text,
+rather than creating a `<strong>` element. Literal HTML in the template is preserved.
+
+HTML marked as safe by Rails, including output from helpers such as `content_tag`
+and other `call_<name>` subtemplates, is preserved without double escaping.
+
 ## Rendering a subtemplate on its own
 
 Sometimes you need to render just one subtemplate, outside the component's main

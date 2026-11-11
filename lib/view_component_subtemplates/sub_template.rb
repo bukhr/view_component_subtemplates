@@ -58,7 +58,7 @@ module ViewComponentSubtemplates
     end
 
     def compile_erb_source
-      erb = ERB.new(source)
+      erb = ViewComponentSubtemplates::ERB.new(source)
       erb.filename = path
       erb.src
     end

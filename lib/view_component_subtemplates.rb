@@ -36,6 +36,7 @@ module ViewComponentSubtemplates
 end
 
 # Load SubTemplate after the module is fully configured
+require_relative "view_component_subtemplates/erb"
 require_relative "view_component_subtemplates/sub_template"
 require_relative "view_component_subtemplates/standalone_renderer"
 
