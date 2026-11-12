@@ -34,7 +34,7 @@ class TestViewComponentSubtemplates < Minitest::Test
     end
 
     should "define call methods dynamically and correctly" do
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
 
       assert @component_class.instance_methods.include?(:call_row)
       assert @component_class.instance_methods.include?(:call_header)
@@ -46,14 +46,14 @@ class TestViewComponentSubtemplates < Minitest::Test
     end
 
     should "make call methods respond to respond_to?" do
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
       component = @component_class.new
 
       assert component.respond_to?(:call_row)
     end
 
     should "pass keyword arguments correctly" do
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
       component = @component_class.new
       result = component.call_header(title: "Test Title")
 
@@ -61,7 +61,7 @@ class TestViewComponentSubtemplates < Minitest::Test
     end
 
     should "validate required arguments strictly" do
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
       component = @component_class.new
 
       error = assert_raises(ArgumentError) { component.call_row }
@@ -73,7 +73,7 @@ class TestViewComponentSubtemplates < Minitest::Test
 
     should "generate call method for template without arguments" do
       File.write(File.join(@component_dir, "footer.html.erb"), "<footer>Footer content</footer>")
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
 
       component = @component_class.new
       result = component.call_footer
@@ -82,7 +82,7 @@ class TestViewComponentSubtemplates < Minitest::Test
     end
 
     should "return html_safe strings from call methods" do
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
       component = @component_class.new
       result = component.call_row(model: "test")
 
@@ -115,7 +115,7 @@ class TestViewComponentSubtemplates < Minitest::Test
 
     should "not define any call methods when no sub-templates exist" do
       # No sub-templates created
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
 
       instance = @component_class.new
       call_methods = instance.methods.grep(/^call_/)
@@ -126,7 +126,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@component_dir, "row.html.erb"), "<tr></tr>")
       File.write(File.join(@component_dir, "header.html.erb"), "<th></th>")
 
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
 
       instance = @component_class.new
       assert instance.respond_to?(:call_row), "Expected component to respond to call_row"
@@ -138,7 +138,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@component_dir, "README.md"), "# Documentation")
       File.write(File.join(@component_dir, "styles.css"), "/* styles */")
 
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
 
       instance = @component_class.new
       assert instance.respond_to?(:call_row)
@@ -151,7 +151,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@component_dir, "haml_template.html.haml"), "%div HAML") if defined?(Haml)
       File.write(File.join(@component_dir, "slim_template.html.slim"), "div SLIM") if defined?(Slim)
 
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
 
       instance = @component_class.new
       assert instance.respond_to?(:call_erb_template)
@@ -256,7 +256,7 @@ class TestViewComponentSubtemplates < Minitest::Test
     end
 
     should "work in a real component scenario" do
-      ViewComponent::Compiler.new(@table_component).compile
+      @table_component.__vc_compile
 
       items = [
         { name: "Item 1" },
@@ -312,7 +312,7 @@ class TestViewComponentSubtemplates < Minitest::Test
 
     should "inherit call methods from parent component" do
       # Compile parent first
-      ViewComponent::Compiler.new(@parent_component).compile
+      @parent_component.__vc_compile
 
       # Create child component that inherits from parent
       child_component = Class.new(@parent_component)
@@ -326,7 +326,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
 
       # Compile child
-      ViewComponent::Compiler.new(child_component).compile
+      child_component.__vc_compile
 
       # Child should inherit parent's call methods
       child_instance = child_component.new
@@ -338,7 +338,7 @@ class TestViewComponentSubtemplates < Minitest::Test
     end
 
     should "render an inherited subtemplate standalone via render_subtemplate_in" do
-      ViewComponent::Compiler.new(@parent_component).compile
+      @parent_component.__vc_compile
 
       child_component = Class.new(@parent_component)
       Object.const_set(:ChildComponent, child_component)
@@ -347,7 +347,7 @@ class TestViewComponentSubtemplates < Minitest::Test
         File.join(temp_dir, "child_component.rb")
       end
       File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
-      ViewComponent::Compiler.new(child_component).compile
+      child_component.__vc_compile
 
       view_context = ActionView::Base.new(ActionView::LookupContext.new([]), {}, nil)
       # `footer` is a no-locals subtemplate defined on the parent.
@@ -369,7 +369,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
 
       # Compile child FIRST (parent not compiled yet)
-      ViewComponent::Compiler.new(child_component).compile
+      child_component.__vc_compile
 
       # Child should still have access to parent's call methods
       child_instance = child_component.new
@@ -400,7 +400,7 @@ class TestViewComponentSubtemplates < Minitest::Test
                  "<%# locals: (content:) -%>\n<main><%= content %></main>")
 
       # Compile child
-      ViewComponent::Compiler.new(child_component).compile
+      child_component.__vc_compile
 
       child_instance = child_component.new
 
@@ -433,7 +433,7 @@ class TestViewComponentSubtemplates < Minitest::Test
                  "<%# locals: (items:) -%>\n<nav><%= items.join(', ') %></nav>")
 
       # Should compile and process its own subtemplates
-      ViewComponent::Compiler.new(direct_child).compile
+      direct_child.__vc_compile
 
       direct_child_instance = direct_child.new
       assert direct_child_instance.respond_to?(:call_nav), "Should have its own call_nav method"
@@ -446,7 +446,7 @@ class TestViewComponentSubtemplates < Minitest::Test
 
     should "not reprocess subtemplates if already processed" do
       # Compile parent first
-      ViewComponent::Compiler.new(@parent_component).compile
+      @parent_component.__vc_compile
 
       # Verify parent was marked as processed
       assert @parent_component.instance_variable_get(:@__subtemplates_processed),
@@ -462,7 +462,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@temp_dir, "child_component.html.erb"), "<div>Child</div>")
 
       # Compile child - parent subtemplates should NOT be reprocessed
-      ViewComponent::Compiler.new(child_component).compile
+      child_component.__vc_compile
 
       # Both should work correctly
       child_instance = child_component.new
@@ -507,7 +507,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@temp_dir, "grandchild_component.html.erb"), "<div>Grandchild</div>")
 
       # Compile ONLY the grandchild (not grandparent or parent)
-      ViewComponent::Compiler.new(child_component).compile
+      child_component.__vc_compile
 
       # Grandchild should inherit call_title from grandparent
       child_instance = child_component.new
@@ -549,7 +549,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@temp_dir, "middle_parent2.html.erb"), "<div>Middle2</div>")
 
       # Compile middle parent FIRST (grandparent NOT compiled yet)
-      ViewComponent::Compiler.new(middle_component).compile
+      middle_component.__vc_compile
 
       # Now create and compile grandchild
       child_component = Class.new(middle_component)
@@ -560,7 +560,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@temp_dir, "grand_child2.html.erb"), "<div>GC2</div>")
 
       # Compile grandchild - should detect grandparent has subtemplates and compile it
-      ViewComponent::Compiler.new(child_component).compile
+      child_component.__vc_compile
 
       # Grandchild should have call_banner from grandparent
       child_instance = child_component.new
@@ -617,7 +617,7 @@ class TestViewComponentSubtemplates < Minitest::Test
         "<%# locals: (x:) -%>\n<span><%= x %></span>"
       )
 
-      ViewComponent::Compiler.new(@component_class).compile(force: true)
+      @component_class.__vc_compile(force: true)
 
       @view_context = ActionView::Base.new(ActionView::LookupContext.new([]), {}, nil)
       @component = @component_class.new
@@ -724,7 +724,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       # Template sin locals pero usa una variable
       File.write(File.join(@component_dir, "broken.html.erb"), "<%= undefined_variable %>")
 
-      ViewComponent::Compiler.new(@component_class).compile
+      @component_class.__vc_compile
       component = @component_class.new
 
       # Should raise when calling the method, not during compilation
@@ -738,7 +738,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       File.write(File.join(@component_dir, "mismatch.html.erb"),
                  "<%# locals: (declared_var:) -%>\n<%= undeclared_var %>")
 
-      ViewComponent::Compiler.new(@component_class).compile
+      @component_class.__vc_compile
       component = @component_class.new
 
       assert_raises(NameError) do
