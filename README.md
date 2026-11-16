@@ -152,7 +152,7 @@ templates, `call_<name>` keeps taking locals exactly as shown in the Quick Start
 
 - Ruby >= 3.1.0
 - Rails >= 7.0.0
-- ViewComponent >= 4.2.0
+- ViewComponent >= 4.10.0
 
 ## Development
 

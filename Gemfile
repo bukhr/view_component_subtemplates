@@ -2,8 +2,6 @@
 
 source "https://rubygems.org"
 
-gem "view_component", ">= 4.2.0"
-
 # Specify your gem's dependencies in view_component_subtemplates.gemspec
 gemspec
 

@@ -40,3 +40,18 @@ jobs:
           bundler-cache: true
       - name: Run tests
         run: bundle exec rake test
+
+  test-minimum-view-component:
+    runs-on: ubuntu-latest
+    name: Minimum ViewComponent
+    env:
+      BUNDLE_GEMFILE: gemfiles/view_component_minimum.gemfile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4'
+          bundler-cache: true
+      - name: Run tests
+        run: bundle exec rake test

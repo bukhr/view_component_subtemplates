@@ -26,7 +26,7 @@ Gem::Specification.new do |spec|
   spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true).reject do |f|
       (f == gemspec) ||
-        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile])
+        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile gemfiles/])
     end
   end
   spec.bindir = "exe"
@@ -35,7 +35,8 @@ Gem::Specification.new do |spec|
 
   # Dependencies
   spec.add_dependency "rails", ">= 7.0"
-  spec.add_dependency "view_component", ">= 4.2.0"
+  # 4.10.0 syncs `capture` with the view context's buffer, which subtemplates rely on.
+  spec.add_dependency "view_component", ">= 4.10.0"
 
   # For more information and examples about making a new gem, check out our
   # guide at: https://bundler.io/guides/creating_gem.html
