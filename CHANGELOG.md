@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-20
+
 ### Fixed
 - Subtemplates now escape interpolated values. They were compiled with plain `ERB` and the whole output was marked `html_safe`, so user input rendered through `<%= %>` was inserted as raw HTML. Values already marked `html_safe` are still rendered as-is.
 
