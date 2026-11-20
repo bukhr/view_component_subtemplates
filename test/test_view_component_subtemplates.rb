@@ -42,7 +42,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       component = @component_class.new
       result = component.call_row(model: "test")
 
-      assert_equal "\n<tr><td>test</td></tr>", result
+      assert_equal "<tr><td>test</td></tr>", result
     end
 
     should "make call methods respond to respond_to?" do
@@ -57,7 +57,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       component = @component_class.new
       result = component.call_header(title: "Test Title")
 
-      assert_equal "\n<th>Test Title</th>", result
+      assert_equal "<th>Test Title</th>", result
     end
 
     should "validate required arguments strictly" do
@@ -334,7 +334,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       assert child_instance.respond_to?(:call_footer)
 
       result = child_instance.call_header(title: "Inherited Title")
-      assert_equal "\n<h1>Inherited Title</h1>", result
+      assert_equal "<h1>Inherited Title</h1>", result
     end
 
     should "render an inherited subtemplate standalone via render_subtemplate_in" do
@@ -377,7 +377,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       assert child_instance.respond_to?(:call_footer), "Child should inherit call_footer from parent"
 
       result = child_instance.call_header(title: "Auto-compiled Parent")
-      assert_equal "\n<h1>Auto-compiled Parent</h1>", result
+      assert_equal "<h1>Auto-compiled Parent</h1>", result
     end
 
     should "work with child that has its own subtemplates" do
@@ -410,10 +410,10 @@ class TestViewComponentSubtemplates < Minitest::Test
       assert child_instance.respond_to?(:call_body), "Should have child's call_body"
 
       parent_result = child_instance.call_header(title: "Test")
-      assert_equal "\n<h1>Test</h1>", parent_result
+      assert_equal "<h1>Test</h1>", parent_result
 
       child_result = child_instance.call_body(content: "Child content")
-      assert_equal "\n<main>Child content</main>", child_result
+      assert_equal "<main>Child content</main>", child_result
     end
 
     should "skip ancestor compilation for direct ViewComponent::Base children" do
@@ -439,7 +439,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       assert direct_child_instance.respond_to?(:call_nav), "Should have its own call_nav method"
 
       result = direct_child_instance.call_nav(items: %w[Home About])
-      assert_equal "\n<nav>Home, About</nav>", result
+      assert_equal "<nav>Home, About</nav>", result
     ensure
       Object.send(:remove_const, :DirectChild) if Object.const_defined?(:DirectChild)
     end
@@ -470,7 +470,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       assert child_instance.respond_to?(:call_footer)
 
       result = child_instance.call_header(title: "No Reprocess")
-      assert_equal "\n<h1>No Reprocess</h1>", result
+      assert_equal "<h1>No Reprocess</h1>", result
     end
 
     should "handle multi-level inheritance (3+ levels)" do
@@ -514,7 +514,7 @@ class TestViewComponentSubtemplates < Minitest::Test
       assert child_instance.respond_to?(:call_title), "Grandchild should inherit call_title from grandparent"
 
       result = child_instance.call_title(text: "Multi-level Title")
-      assert_equal "\n<h1>Multi-level Title</h1>", result
+      assert_equal "<h1>Multi-level Title</h1>", result
     ensure
       Object.send(:remove_const, :GrandparentComponent) if Object.const_defined?(:GrandparentComponent)
       Object.send(:remove_const, :MiddleParentComponent) if Object.const_defined?(:MiddleParentComponent)
@@ -568,7 +568,7 @@ class TestViewComponentSubtemplates < Minitest::Test
              "Grandchild should inherit call_banner even when middle parent was pre-compiled"
 
       result = child_instance.call_banner(msg: "Success!")
-      assert_equal "\n<div class='banner'>Success!</div>", result
+      assert_equal "<div class='banner'>Success!</div>", result
     ensure
       Object.send(:remove_const, :GrandParent2) if Object.const_defined?(:GrandParent2)
       Object.send(:remove_const, :MiddleParent2) if Object.const_defined?(:MiddleParent2)
@@ -684,6 +684,143 @@ class TestViewComponentSubtemplates < Minitest::Test
       # The error lists the existing subtemplates (covers `available_subtemplates`).
       assert_match(/field/, error.message)
       assert_match(/greeting/, error.message)
+    end
+  end
+
+  context "HTML escaping" do
+    setup do
+      @unsafe = %(<script>alert(1)</script>" onclick=")
+      @escaped = "&lt;script&gt;alert(1)&lt;/script&gt;&quot; onclick=&quot;"
+
+      @component_class = Class.new(ViewComponent::Base) do
+        attr_accessor :title, :main_mode
+
+        def trusted
+          "<i>trusted</i>".html_safe
+        end
+      end
+      Object.const_set(:EscapingComponent, @component_class)
+      @temp_dir = Dir.mktmpdir
+      @component_dir = File.join(@temp_dir, "escaping_component")
+      Dir.mkdir(@component_dir)
+      temp_dir = @temp_dir
+      @component_class.define_singleton_method(:identifier) do
+        File.join(temp_dir, "escaping_component.rb")
+      end
+
+      File.write(File.join(@temp_dir, "escaping_component.html.erb"),
+                 "<main><% case main_mode %>" \
+                 "<% when :helpers_block %><%= call_helpers_block %>" \
+                 "<% when :partial %><%= render partial: \"slot\", locals: { component: self } %>" \
+                 "<% when :notes %><%= call_notes %>" \
+                 "<% else %><%= call_label(text: title) %><% end %></main>")
+      File.write(File.join(@component_dir, "label.html.erb"),
+                 "<%# locals: (text:) -%>\n<b><%= text %></b><a title=\"<%= text %>\">x</a>")
+      File.write(File.join(@component_dir, "trusted_html.html.erb"), "<%= trusted %>")
+      File.write(File.join(@component_dir, "block_helper.html.erb"),
+                 "<%= content_tag :span do %><%= title %><% end %>")
+      File.write(File.join(@component_dir, "notes.text.erb"), "<%= title %>")
+      File.write(File.join(@component_dir, "helpers_block.html.erb"),
+                 "<%= helpers.content_tag :div, class: \"box\" do %><b><%= title %></b><% end %>")
+      File.write(File.join(@component_dir, "nested.html.erb"),
+                 "<section><%= call_label(text: title) %></section>")
+      File.write(File.join(@component_dir, "boom.html.erb"), "<p>before</p><% raise \"boom\" %>")
+
+      ViewComponent::Compiler.new(@component_class).compile(force: true)
+
+      views_dir = File.join(@temp_dir, "views")
+      Dir.mkdir(views_dir)
+      File.write(File.join(views_dir, "_slot.html.erb"), "<aside><%= component.call_helpers_block %></aside>")
+
+      lookup_context = ActionView::LookupContext.new([views_dir])
+      @view_context = ActionView::Base.with_empty_template_cache.new(lookup_context, {}, nil)
+      @component = @component_class.new
+      @component.title = @unsafe
+    end
+
+    teardown do
+      Object.send(:remove_const, :EscapingComponent) if Object.const_defined?(:EscapingComponent)
+      FileUtils.rm_rf(@temp_dir) if @temp_dir
+    end
+
+    should "escape interpolated values in text and attributes" do
+      result = @component.call_label(text: @unsafe)
+
+      assert_equal "<b>#{@escaped}</b><a title=\"#{@escaped}\">x</a>", result
+      assert result.html_safe?
+    end
+
+    should "not escape values already marked as html_safe" do
+      assert_equal "<i>trusted</i>", @component.call_trusted_html
+    end
+
+    should "escape values inside block helpers" do
+      result = @component.render_subtemplate_in(@view_context, :block_helper)
+
+      assert_equal "<span>#{@escaped}</span>", result
+    end
+
+    should "render the subtemplate once and escaped inside the main template" do
+      result = @component.render_in(@view_context)
+
+      assert_equal "<main><b>#{@escaped}</b><a title=\"#{@escaped}\">x</a></main>", result
+    end
+
+    should "not escape HTML in text format subtemplates" do
+      result = @component.call_notes
+
+      assert_equal @unsafe, result
+      refute result.html_safe?
+    end
+
+    should "escape a text format subtemplate embedded in an HTML template" do
+      @component.main_mode = :notes
+
+      result = @component.render_in(@view_context)
+
+      assert_equal "<main>#{@escaped}</main>", result
+    end
+
+    should "keep block content inside helpers.content_tag when rendered standalone" do
+      result = @component.render_subtemplate_in(@view_context, :helpers_block)
+
+      assert_equal "<div class=\"box\"><b>#{@escaped}</b></div>", result
+    end
+
+    should "keep block content inside helpers.content_tag when called from the main template" do
+      @component.main_mode = :helpers_block
+
+      result = @component.render_in(@view_context)
+
+      assert_equal "<main><div class=\"box\"><b>#{@escaped}</b></div></main>", result
+    end
+
+    should "keep block content inside helpers.content_tag when called from a partial" do
+      @component.main_mode = :partial
+
+      result = @component.render_in(@view_context)
+
+      assert_equal "<main><aside><div class=\"box\"><b>#{@escaped}</b></div></aside></main>", result
+    end
+
+    should "render a subtemplate that calls another subtemplate once and escaped" do
+      result = @component.render_subtemplate_in(@view_context, :nested)
+
+      assert_equal "<section><b>#{@escaped}</b><a title=\"#{@escaped}\">x</a></section>", result
+    end
+
+    should "restore the output buffer when a subtemplate raises" do
+      assert_raises(RuntimeError) { @component.render_subtemplate_in(@view_context, :boom) }
+
+      assert_equal "", @view_context.output_buffer.to_s
+      assert_equal "<span>#{@escaped}</span>", @component.render_subtemplate_in(@view_context, :block_helper)
+    end
+
+    should "restore the output buffer when a subtemplate raises outside a render" do
+      assert_raises(RuntimeError) { @component.call_boom }
+
+      assert_nil @component.instance_variable_get(:@output_buffer)
+      assert_equal "<b>#{@escaped}</b><a title=\"#{@escaped}\">x</a>", @component.call_label(text: @unsafe)
     end
   end
 

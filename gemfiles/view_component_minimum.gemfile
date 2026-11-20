@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+# Runs the suite against the minimum ViewComponent version the gemspec allows.
+# The main Gemfile installs the latest release. Used by CI:
+#   BUNDLE_GEMFILE=gemfiles/view_component_minimum.gemfile bundle exec rake test
+eval_gemfile "../Gemfile"
+
+gem "view_component", "4.10.0"
